@@ -53,7 +53,7 @@ namespace nnplib {
         return 0;
     }
     
-    bool boolean_expression::eval(const std::map<char, bool> &bits) {
+    bool boolean_expression::eval(const std::map<char, bool> &bits) const {
         std::stack<bool> val_stack;
         auto pop_stack = [&]() -> bool {
             bool val = val_stack.top();
@@ -90,7 +90,7 @@ namespace nnplib {
         return val_stack.top();
     }
     
-    bool boolean_expression::eval(const std::vector<char> &order, int64_t val) {
+    bool boolean_expression::eval(const std::vector<char> &order, int64_t val) const {
         bitmap bits;
         if (order.size() > 64) throw std::runtime_error("Eval: too many variables (> 64)");
         for (int i = 0; i < order.size(); ++i) {
@@ -138,5 +138,14 @@ namespace nnplib {
             if (std::isalpha(c)) vars.insert(c);
         }
         return std::vector<char>(vars.begin(), vars.end());
+    }
+    
+    std::vector<bool> boolean_expression::get_truth_table() const {
+        std::vector<bool> table;
+        auto order = get_var_list();
+        int64_t val = 0, max = 1 << order.size() ;
+        table.reserve(max - 1);
+        while (val < max) table.push_back(eval(order, val++));
+        return table;
     }
 }

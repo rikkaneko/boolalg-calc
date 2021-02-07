@@ -11,3 +11,6 @@ target_link_libraries(boolalg_calc -lfmt)
 
 add_executable(test1 test/test1.cpp boolean_expression.cpp)
 target_link_libraries(test1 -lfmt)
+
+add_executable(test2 test/test2.cpp boolean_expression.cpp)
+target_link_libraries(test2 -lfmt)

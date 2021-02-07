@@ -10,8 +10,9 @@ namespace nnplib {
     public:
         using bitmap = std::map<char, bool>;
         int parse(const std::string &expression);
-        bool eval(const bitmap &bits);
-        bool eval(const std::vector<char> &order, int64_t val);
+        bool eval(const bitmap &bits) const;
+        bool eval(const std::vector<char> &order, int64_t val) const;
+        std::vector<bool> get_truth_table() const;
         std::vector<char> get_var_list() const;
         std::string extract() const;
         static bool preced_op(char op1, char op2);
