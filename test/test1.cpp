@@ -25,14 +25,14 @@ int main(int argc, char *argv[]) {
                 }
                 fmt::print("Result: {}\n", expr.eval(bits));
             } else if (input[0] == '2') {
-                int64_t val = 0;
+                uint64_t val = 0;
                 auto order = expr.get_var_list();
                 fmt::print("Bitmap {{");
                 for (char c: order) fmt::print("{}", c);
                 fmt::print("}} in decimal: ");
                 std::cin >> val;
                 std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                fmt::print("Result: {}\n", expr.eval(order, val));
+                fmt::print("Result: {}\n", expr.eval(val));
             }
             else fmt::print("Unrecognized choice `{}`.\n", input[0]);
         } catch (std::exception &e) {

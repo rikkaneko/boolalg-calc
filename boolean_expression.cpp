@@ -9,6 +9,7 @@
 namespace nnplib {
     int boolean_expression::parse(const std::string &expression) {
         expr_.clear();
+        var_list_.clear();
         bool need_and_op = false;
         std::stack<char> op_stack;
         auto push_to_output = [&]() {
@@ -53,7 +54,7 @@ namespace nnplib {
         return 0;
     }
     
-    bool boolean_expression::eval(const std::map<char, bool> &bits) const {
+    bool boolean_expression::eval(const bitmap &bits) {
         std::stack<bool> val_stack;
         auto pop_stack = [&]() -> bool {
             bool val = val_stack.top();
@@ -90,13 +91,19 @@ namespace nnplib {
         return val_stack.top();
     }
     
-    bool boolean_expression::eval(const std::vector<char> &order, int64_t val) const {
-        bitmap bits;
-        if (order.size() > 64) throw std::runtime_error("Eval: too many variables (> 64)");
-        for (int i = 0; i < order.size(); ++i) {
-            bits.emplace(order[i], val & (1 << (order.size() - i - 1)));
+    bool boolean_expression::eval(bitmap &aux, uint64_t val) {
+        update_var_list();
+        if (var_list_.size() > 64) throw std::runtime_error("Eval: too many variables (> 64)");
+        for (int i = 0; i < var_list_.size(); ++i) {
+            uint k = var_list_.size() - i - 1;
+            aux[var_list_[i]] = (val & (1 << k)) >> k;
         }
-        return eval(bits);
+        return eval(aux);
+    }
+    
+    bool boolean_expression::eval(uint64_t val) {
+        bitmap bits;
+        return eval(bits, val);
     }
     
     std::string boolean_expression::extract() const {
@@ -110,7 +117,7 @@ namespace nnplib {
         case '*':
             return op2 != '+';
         case '~':
-            return false;
+        case '!':
         default:
             return false;
         }
@@ -132,20 +139,32 @@ namespace nnplib {
         }
     }
     
-    std::vector<char> boolean_expression::get_var_list() const {
-        std::set<char> vars;
-        for (auto c: expr_) {
-            if (std::isalpha(c)) vars.insert(c);
+    void boolean_expression::update_var_list() {
+        if (expr_.empty()) throw std::runtime_error("Invalid boolean expression.");
+        if (var_list_.empty()) {
+            std::set<char> vars;
+            for (auto c: expr_) {
+                if (std::isalpha(c)) vars.insert(c);
+            }
+            var_list_.reserve(64);
+            for (auto c: vars) {
+                var_list_.push_back(c);
+            }
         }
-        return std::vector<char>(vars.begin(), vars.end());
     }
     
-    std::vector<bool> boolean_expression::get_truth_table() const {
+    std::vector<char> boolean_expression::get_var_list() {
+        update_var_list();
+        return var_list_;
+    }
+    
+    std::vector<bool> boolean_expression::get_truth_table() {
         std::vector<bool> table;
-        auto order = get_var_list();
-        int64_t val = 0, max = 1 << order.size() ;
+        bitmap bits;
+        update_var_list();
+        uint64_t val = 0, max = 1 << var_list_.size();
         table.reserve(max - 1);
-        while (val < max) table.push_back(eval(order, val++));
+        while (val < max) table.push_back(eval(bits, val++));
         return table;
     }
 }
