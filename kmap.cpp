@@ -51,9 +51,9 @@ namespace nnplib {
         for (int i = 0; i < order_; ++i) {
             if (merged.content[i] != t2.content[i]) {
                 if (diff) return {};
-                diff = true;
+                if (merged.content[i] == '1') --merged.one_co;
                 merged.content[i] = '-';
-                --merged.one_co;
+                diff = true;
             }
         }
         merged.included.insert(t2.included.begin(), t2.included.end());
@@ -84,10 +84,19 @@ namespace nnplib {
         if (!order_) return {};
         const int times = 1 << order_;
         std::vector<std::list<term>> terms(order_ + 1);
+        std::vector<int> appeared(times);
+        auto empty_term = [&terms]() -> bool {
+            for (auto &l: terms) {
+                if (!l.empty()) return false;
+            }
+            return true;
+        };
+        
         for (auto &v: minterms_) {
             auto t = make_term(v);
             terms[t.one_co].emplace_back(t);
         }
+        
         for (auto &v: dterms_) {
             auto t = make_term(v);
             t.dterm = true;
@@ -95,9 +104,9 @@ namespace nnplib {
         }
         
         // Quine–McCluskey algorithm
-        for (int i = 2; i <= times; i *= 2) {
+        for (int i = 2; i <= times && !empty_term(); i *= 2) {
             std::vector<std::list<term>> terms_nextorder(order_ + 1);
-            std::vector<int> appeared(times - 1);
+            for (auto &v: appeared) v = 0;
             for (int j = 0; j < order_ - 1; ++j) {
                 for (auto &t1: terms[j]) {
                     for (auto &t2: terms[j + 1]) {
@@ -108,7 +117,6 @@ namespace nnplib {
                     }
                 }
             }
-            // find prime term
             for (auto &l: terms) {
                 for (auto &t: l) {
                     bool prime = true;
@@ -118,11 +126,30 @@ namespace nnplib {
                             break;
                         }
                     }
-                    if (prime && !t.dterm) prime_term_.emplace_back(t);
+                    if (prime && !t.dterm) prime_term_.emplace_back(std::move(t));
                 }
             }
             terms = std::move(terms_nextorder);
         }
+        
+        std::list<term> candidate;
+        for (auto &l: terms) {
+            for (auto &t: l) {
+                bool prime = true;
+                for (auto &m: t.included) {
+                    if (appeared[m] != 1) {
+                        prime = false;
+                        break;
+                    }
+                }
+                if (prime && t.dterm) continue;
+                if (prime && !t.dterm) prime_term_.emplace_back(std::move(t));
+                else candidate.emplace_back(std::move(t));
+            }
+        }
+        terms.clear();
+        
+        // Petrick's method
         
         return {};
     }

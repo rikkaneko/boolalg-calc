@@ -32,6 +32,6 @@ namespace nnplib {
         std::vector<uint> dterms_;
         std::vector<char> var_list_;
         std::list<term> prime_term_;
-        int order_;
+        int order_ = 0;
     };
 }
