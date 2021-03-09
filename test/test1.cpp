@@ -1,13 +1,13 @@
 /* This file is part of boolalg_calc.
  * Copyright (c) 2021 rikkaneko. */
-#include "boolean_expression.h"
+#include "boolexpr.h"
 #include <iostream>
 #include <string>
 #include <fmt/core.h>
 
 int main(int argc, char *argv[]) {
     std::string input;
-    nnplib::boolean_expression expr;
+    nnplib::boolexpr expr;
     fmt::print("Expression: ");
     while (std::getline(std::cin, input)) {
         fmt::print("Inputted: {}\n", input);
@@ -17,7 +17,7 @@ int main(int argc, char *argv[]) {
             fmt::print("Input value by\n[1] Each\n[2] Bitmap in decimal\nchoice: ");
             std::getline(std::cin, input);
             if (input[0] == '1') {
-                nnplib::boolean_expression::bitmap bits;
+                nnplib::boolexpr::bitmap bits;
                 for (auto c: expr.get_var_list()) {
                     fmt::print("{}: ", c);
                     std::getline(std::cin, input);

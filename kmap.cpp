@@ -7,29 +7,26 @@
 namespace nnplib {
     int kmap::from_truthtable(const std::vector<bool> &table) {
         reset();
-        minterms_.reserve(table.size());
         order_ = (int) std::log2(table.size()) + 1;
         for (uint i = 0; i < table.size(); ++i) {
-            if (table[i]) minterms_.push_back(i);
+            if (table[i]) minterms_.emplace_back(i);
         }
         return 0;
     }
     
     int kmap::from_truthtable(const std::string &bits) {
         reset();
-        minterms_.reserve(bits.size());
-        dterms_.push_back(bits.size() / 2);
         order_ = (int) std::log2(bits.size()) + 1;
         for (uint i = 0; i < bits.size(); ++i) {
             switch (bits[i]) {
             case '0':
                 continue;
             case '1':
-                minterms_.push_back(i);
+                minterms_.emplace_back(i);
                 break;
             case 'x':
             case 'X':
-                dterms_.push_back(i);
+                dterms_.emplace(i);
             default:
                 reset();
                 throw std::runtime_error(std::string() + "Illegal character `" + bits[i] + "`.");
@@ -126,7 +123,9 @@ namespace nnplib {
                             break;
                         }
                     }
-                    if (prime && !t.dterm) prime_term_.emplace_back(std::move(t));
+                    if (prime && !t.dterm) {
+                        prime_term_.emplace_back(std::move(t));
+                    }
                 }
             }
             terms = std::move(terms_nextorder);
@@ -134,28 +133,32 @@ namespace nnplib {
         
         std::list<term> candidate;
         for (auto &l: terms) {
-            for (auto &t: l) {
-                bool prime = true;
-                for (auto &m: t.included) {
-                    if (appeared[m] != 1) {
-                        prime = false;
+            auto iter = l.begin();
+            while (iter != l.end()) {
+                bool prime = false;
+                for (auto &m: iter->included) {
+                    if (appeared[m] == 1 && !dterms_.contains(m)) {
+                        prime_term_.emplace_back(std::move(*iter));
+                        l.erase(iter++);
+                        prime = true;
                         break;
                     }
                 }
-                if (prime && t.dterm) continue;
-                if (prime && !t.dterm) prime_term_.emplace_back(std::move(t));
-                else candidate.emplace_back(std::move(t));
+                if (!prime) {
+                    candidate.emplace_back(std::move(*iter));
+                    l.erase(iter++);
+                }
             }
         }
-        terms.clear();
         
         // Petrick's method
+        
         
         return {};
     }
     
     std::list<std::string> kmap::optimize(const std::string &expression) {
-        boolean_expression expr;
+        boolexpr expr;
         expr.parse(expression);
         from_truthtable(expr.get_truth_table());
         return optimize();

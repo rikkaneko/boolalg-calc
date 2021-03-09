@@ -1,12 +1,12 @@
 /* This file is part of boolalg_calc.
  * Copyright (c) 2021 rikkaneko. */
-#include "boolean_expression.h"
+#include "boolexpr.h"
 #include <iostream>
 #include <fmt/core.h>
 
 int main(int argc, char *argv[]) {
     std::string input;
-    nnplib::boolean_expression expr;
+    nnplib::boolexpr expr;
     fmt::print("Expression: ");
     while (std::getline(std::cin, input)) {
         try {

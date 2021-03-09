@@ -1,7 +1,7 @@
 /* This file is part of boolalg_calc.
  * Copyright (c) 2021 rikkaneko. */
 #pragma once
-#include "boolean_expression.h"
+#include "boolexpr.h"
 #include <vector>
 #include <list>
 #include <tuple>
@@ -26,10 +26,10 @@ namespace nnplib {
     private:
         std::optional<term> combine(const term &t1, const term &t2) const;
         kmap::term make_term(uint val) const;
-        void reset();
         static int count_one(const term &t);
+        void reset();
         std::vector<uint> minterms_;
-        std::vector<uint> dterms_;
+        std::set<uint> dterms_;
         std::vector<char> var_list_;
         std::list<term> prime_term_;
         int order_ = 0;

@@ -1,13 +1,13 @@
 /* This file is part of boolalg_calc.
  * Copyright (c) 2021 rikkaneko. */
-#include "boolean_expression.h"
+#include "boolexpr.h"
 #include <cctype>
 #include <stack>
 #include <stdexcept>
 #include <set>
 
 namespace nnplib {
-    int boolean_expression::parse(const std::string &expression) {
+    int boolexpr::parse(const std::string &expression) {
         expr_.clear();
         var_list_.clear();
         bool need_and_op = false;
@@ -54,7 +54,7 @@ namespace nnplib {
         return 0;
     }
     
-    bool boolean_expression::eval(const bitmap &bits) {
+    bool boolexpr::eval(const bitmap &bits) {
         std::stack<bool> val_stack;
         auto pop_stack = [&]() -> bool {
             bool val = val_stack.top();
@@ -91,7 +91,7 @@ namespace nnplib {
         return val_stack.top();
     }
     
-    bool boolean_expression::eval(bitmap &aux, uint64_t val) {
+    bool boolexpr::eval(bitmap &aux, uint64_t val) {
         update_var_list();
         if (var_list_.size() > 64) throw std::runtime_error("Eval: too many variables (> 64)");
         for (int i = 0; i < var_list_.size(); ++i) {
@@ -101,16 +101,16 @@ namespace nnplib {
         return eval(aux);
     }
     
-    bool boolean_expression::eval(uint64_t val) {
+    bool boolexpr::eval(uint64_t val) {
         bitmap bits;
         return eval(bits, val);
     }
     
-    std::string boolean_expression::extract() const {
+    std::string boolexpr::extract() const {
         return expr_;
     }
     
-    bool boolean_expression::preced_op(char op1, char op2) {
+    bool boolexpr::preced_op(char op1, char op2) {
         switch (op1) {
         case '+':
             return true;
@@ -123,11 +123,11 @@ namespace nnplib {
         }
     }
     
-    int boolean_expression::is_unary(char op) {
+    int boolexpr::is_unary(char op) {
         return op == '~' || op == '!';
     }
     
-    bool boolean_expression::is_valid_op(char op) {
+    bool boolexpr::is_valid_op(char op) {
         switch (op) {
         case '+':
         case '*':
@@ -139,7 +139,7 @@ namespace nnplib {
         }
     }
     
-    void boolean_expression::update_var_list() {
+    void boolexpr::update_var_list() {
         if (expr_.empty()) throw std::runtime_error("Invalid boolean expression.");
         if (var_list_.empty()) {
             std::set<char> vars;
@@ -153,12 +153,12 @@ namespace nnplib {
         }
     }
     
-    std::vector<char> boolean_expression::get_var_list() {
+    std::vector<char> boolexpr::get_var_list() {
         update_var_list();
         return var_list_;
     }
     
-    std::vector<bool> boolean_expression::get_truth_table() {
+    std::vector<bool> boolexpr::get_truth_table() {
         std::vector<bool> table;
         bitmap bits;
         update_var_list();

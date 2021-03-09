@@ -6,7 +6,7 @@
 #include <map>
 
 namespace nnplib {
-    class boolean_expression {
+    class boolexpr {
     public:
         using bitmap = std::map<char, bool>;
         int parse(const std::string &expression);
