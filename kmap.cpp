@@ -5,28 +5,32 @@
 #include <cmath>
 
 namespace nnplib {
-    int kmap::from_truthtable(const std::vector<bool> &table) {
+    int kmap::from_truthtable(const std::vector<bool> &table, const std::vector<char> &var_list) {
         reset();
-        order_ = (int) std::log2(table.size()) + 1;
+        order_ = (uint) std::log2(table.size());
+        set_var_list(var_list);
         for (uint i = 0; i < table.size(); ++i) {
             if (table[i]) minterms_.emplace_back(i);
         }
         return 0;
     }
     
-    int kmap::from_truthtable(const std::string &bits) {
+    int kmap::from_truthtable(const std::string &bits, const std::vector<char> &var_list) {
         reset();
-        order_ = (int) std::log2(bits.size()) + 1;
+        order_ = (uint) std::log2(bits.size());
+        set_var_list(var_list);
         for (uint i = 0; i < bits.size(); ++i) {
             switch (bits[i]) {
             case '0':
-                continue;
+                break;
             case '1':
                 minterms_.emplace_back(i);
                 break;
             case 'x':
             case 'X':
+            case '?':
                 dterms_.emplace(i);
+                break;
             default:
                 reset();
                 throw std::runtime_error(std::string() + "Illegal character `" + bits[i] + "`.");
@@ -35,16 +39,55 @@ namespace nnplib {
         return 0;
     }
     
-    int kmap::set_variable(const std::vector<char> &var_list) {
-        if (order_ != var_list.size()) throw std::runtime_error("Mismatch number of variables.");
-        var_list_ = var_list;
+    int kmap::from_minterm(const std::vector<uint> &minterms, const std::vector<uint> &dterms, uint var_n,
+                           const std::vector<char> &var_list) {
+        reset();
+        order_ = var_n;
+        set_var_list(var_list);
+        minterms_ = minterms;
+        dterms_.insert(dterms.begin(), dterms.end());
         return 0;
+    }
+    
+    int kmap::set_var_list(const std::vector<char> &var_list) {
+        if (var_list.empty()) {
+            var_list_.reserve(order_);
+            for (int i = 0; i < order_; ++i) var_list_.push_back('A' + (char) i);
+            return order_;
+        } else {
+            if (order_ != var_list.size()) throw std::runtime_error("Mismatch number of variables.");
+            var_list_ = var_list;
+        }
+        return 0;
+    }
+    
+    std::vector<std::string> kmap::infuse_terms() {
+        std::vector<std::string> expr;
+        for (auto &t: prime_term_) {
+            std::string term;
+            for (int i = 0; i < order_; ++i) {
+                switch (t.content[i]) {
+                case '1':
+                    term.push_back(var_list_[i]);
+                    break;
+                case '0':
+                    term.push_back('~');
+                    term.push_back(var_list_[i]);
+                case '-':
+                    break;
+                default:
+                    throw std::runtime_error(
+                            std::string() + "Illegal character `" + t.content[i] + "` in the term.");
+                }
+            }
+            expr.emplace_back(std::move(term));
+        }
+        return expr;
     }
     
     std::optional<kmap::term> kmap::combine(const term &t1, const term &t2) const {
         bool diff = false;
         kmap::term merged = t1;
-        if (t1.dterm && !t2.dterm) merged.dterm = false;
         for (int i = 0; i < order_; ++i) {
             if (merged.content[i] != t2.content[i]) {
                 if (diff) return {};
@@ -53,7 +96,7 @@ namespace nnplib {
                 diff = true;
             }
         }
-        merged.included.insert(t2.included.begin(), t2.included.end());
+        merged.pair.insert(t2.pair.begin(), t2.pair.end());
         return merged;
     }
     
@@ -65,7 +108,7 @@ namespace nnplib {
             if (is_one) ++t.one_co;
             t.content.push_back((is_one) ? '1' : '0');
         }
-        t.included.emplace(val);
+        t.pair.emplace(val);
         return t;
     }
     
@@ -77,16 +120,27 @@ namespace nnplib {
         order_ = 0;
     }
     
-    std::list<std::string> kmap::optimize() {
+    std::vector<std::string> kmap::optimize() {
         if (!order_) return {};
         const int times = 1 << order_;
-        std::vector<std::list<term>> terms(order_ + 1);
+        std::vector<std::vector<term>> terms(order_ + 1);
+        std::vector<std::vector<term>> terms_nextorder(order_ + 1);
+        std::vector<term> prime_term_candidate;
         std::vector<int> appeared(times);
-        auto empty_term = [&terms]() -> bool {
-            for (auto &l: terms) {
-                if (!l.empty()) return false;
+        auto is_no_term_left = [&terms]() -> bool {
+            for (auto &v: terms) {
+                if (!v.empty()) return false;
             }
             return true;
+        };
+        
+        auto is_term_exist = [&terms_nextorder](const term &t2) -> bool {
+            for (auto &v: terms_nextorder) {
+                for (auto &t1: v) {
+                    if (t1.pair == t2.pair) return true;
+                }
+            }
+            return false;
         };
         
         for (auto &v: minterms_) {
@@ -96,57 +150,55 @@ namespace nnplib {
         
         for (auto &v: dterms_) {
             auto t = make_term(v);
-            t.dterm = true;
             terms[t.one_co].emplace_back(t);
         }
         
         // Quine–McCluskey algorithm
-        for (int i = 2; i <= times && !empty_term(); i *= 2) {
-            std::vector<std::list<term>> terms_nextorder(order_ + 1);
-            for (auto &v: appeared) v = 0;
-            for (int j = 0; j < order_ - 1; ++j) {
+        for (int i = 2; i <= times && !is_no_term_left(); i *= 2) {
+            for (int j = 0; j < order_; ++j) {
                 for (auto &t1: terms[j]) {
                     for (auto &t2: terms[j + 1]) {
                         if (auto merged = combine(t1, t2)) {
+                            if (is_term_exist(*merged)) continue;
+                            for (auto &v: merged->pair) ++appeared[v];
                             terms_nextorder[merged->one_co].emplace_back(std::move(*merged));
-                            for (auto &v: merged->included) ++appeared[v];
                         }
                     }
                 }
             }
-            for (auto &l: terms) {
-                for (auto &t: l) {
-                    bool prime = true;
-                    for (auto &m: t.included) {
-                        if (appeared[m] != 0) {
-                            prime = false;
+            
+            for (auto &v: terms) {
+                for (auto &t: v) {
+                    for (auto &m: t.pair) {
+                        if (appeared[m] == 0) {
+                            prime_term_candidate.emplace_back(std::move(t));
                             break;
                         }
                     }
-                    if (prime && !t.dterm) {
-                        prime_term_.emplace_back(std::move(t));
-                    }
                 }
             }
+            
             terms = std::move(terms_nextorder);
+            terms_nextorder.clear();
+            terms_nextorder.resize(order_ + 1);
+            for (auto &v: appeared) v = 0;
         }
         
-        std::list<term> candidate;
-        for (auto &l: terms) {
-            auto iter = l.begin();
-            while (iter != l.end()) {
-                bool prime = false;
-                for (auto &m: iter->included) {
-                    if (appeared[m] == 1 && !dterms_.contains(m)) {
-                        prime_term_.emplace_back(std::move(*iter));
-                        l.erase(iter++);
-                        prime = true;
-                        break;
-                    }
-                }
-                if (!prime) {
-                    candidate.emplace_back(std::move(*iter));
-                    l.erase(iter++);
+        for (auto &v: terms) {
+            for (auto &t: v) prime_term_candidate.emplace_back(std::move(t));
+        }
+        
+        for (auto &t: prime_term_candidate) {
+            for (auto &min: minterms_) {
+                if (t.pair.contains(min)) ++appeared[min];
+            }
+        }
+        
+        for (auto &t: prime_term_candidate) {
+            for (auto &m: t.pair) {
+                if (appeared[m] == 1) {
+                    prime_term_.emplace_back(std::move(t));
+                    break;
                 }
             }
         }
@@ -154,13 +206,13 @@ namespace nnplib {
         // Petrick's method
         
         
-        return {};
+        return infuse_terms();
     }
     
-    std::list<std::string> kmap::optimize(const std::string &expression) {
+    std::vector<std::string> kmap::optimize(const std::string &expression) {
         boolexpr expr;
         expr.parse(expression);
-        from_truthtable(expr.get_truth_table());
+        from_truthtable(expr.get_truth_table(), expr.get_var_list());
         return optimize();
     }
     
@@ -170,5 +222,9 @@ namespace nnplib {
             if (c == '1') ++one_co;
         }
         return one_co;
+    }
+    
+    std::vector<kmap::term> kmap::extract() const {
+        return prime_term_;
     }
 }
