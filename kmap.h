@@ -31,7 +31,7 @@ namespace nnplib {
         static int count_one(const term &t);
         void reset();
         std::vector<uint> minterms_;
-        std::set<uint> dterms_;
+        std::vector<uint> dterms_;
         std::vector<char> var_list_;
         std::vector<term> prime_term_;
         uint order_ = 0;

@@ -29,7 +29,7 @@ namespace nnplib {
             case 'x':
             case 'X':
             case '?':
-                dterms_.emplace(i);
+                dterms_.emplace_back(i);
                 break;
             default:
                 reset();
@@ -41,11 +41,11 @@ namespace nnplib {
     
     int kmap::from_minterm(const std::vector<uint> &minterms, const std::vector<uint> &dterms, uint var_n,
                            const std::vector<char> &var_list) {
-        reset();
+        //reset();
         order_ = var_n;
         set_var_list(var_list);
         minterms_ = minterms;
-        dterms_.insert(dterms.begin(), dterms.end());
+        dterms_ = dterms;
         return 0;
     }
     
@@ -96,6 +96,7 @@ namespace nnplib {
                 diff = true;
             }
         }
+        merged.dterm &= t2.dterm;
         merged.pair.insert(t2.pair.begin(), t2.pair.end());
         return merged;
     }
@@ -116,7 +117,6 @@ namespace nnplib {
         minterms_.clear();
         dterms_.clear();
         var_list_.clear();
-        prime_term_.clear();
         order_ = 0;
     }
     
@@ -150,6 +150,7 @@ namespace nnplib {
         
         for (auto &v: dterms_) {
             auto t = make_term(v);
+            t.dterm = true;
             terms[t.one_co].emplace_back(t);
         }
         
@@ -169,12 +170,14 @@ namespace nnplib {
             
             for (auto &v: terms) {
                 for (auto &t: v) {
+                    bool prime = false;
                     for (auto &m: t.pair) {
                         if (appeared[m] == 0) {
-                            prime_term_candidate.emplace_back(std::move(t));
+                            prime = true;
                             break;
                         }
                     }
+                    if (prime && !t.dterm) prime_term_candidate.emplace_back(std::move(t));
                 }
             }
             
@@ -204,6 +207,7 @@ namespace nnplib {
         }
         
         // Petrick's method
+        
         
         
         return infuse_terms();
